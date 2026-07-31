@@ -1,6 +1,6 @@
 import { SPREADSHEET_ID } from "../config.js";
 
-const LOG_KEY = "jobTrackerLog";
+const LOG_KEY = "dodoLog";
 
 const todayCountEl = document.getElementById("todayCount");
 const recentListEl = document.getElementById("recentList");

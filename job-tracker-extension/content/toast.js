@@ -4,7 +4,7 @@
 // can call it directly — content scripts listed together in manifest.json
 // share one global scope.
 
-const TOAST_ID = "job-tracker-toast";
+const TOAST_ID = "dodo-toast";
 
 function showToast(company, role, todayCount) {
   const existing = document.getElementById(TOAST_ID);
@@ -33,7 +33,7 @@ function showToast(company, role, todayCount) {
   `;
 
   const countLabel = typeof todayCount === "number" ? `+1 today (${todayCount})` : "+1 today";
-  let html = `<div style="font-weight:600;">${countLabel} — Application logged ✓</div>`;
+  let html = `<div style="font-weight:600;">🦤 ${countLabel} — logged and waddled to your sheet ✓</div>`;
   if (company || role) {
     const sub = [company, role].filter(Boolean).join(" · ");
     html += `<div style="margin-top:4px;color:#9CA3AF;font-size:12px;">${escapeHtml(sub)}</div>`;

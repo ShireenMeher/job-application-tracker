@@ -174,7 +174,7 @@ export async function scanGmailForRejections() {
 
     return { count: updatedCount };
   } catch (err) {
-    console.error("Job Tracker: Gmail scan failed", err);
+    console.error("Dodo: Gmail scan failed", err);
     return { count: 0, error: err.message };
   }
 }

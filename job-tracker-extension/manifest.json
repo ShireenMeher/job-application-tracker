@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Job Tracker",
+  "name": "Dodo",
   "version": "1.0.0",
-  "description": "Automatically detects job application submissions on LinkedIn, Handshake, and career sites, and logs them to Google Sheets.",
+  "description": "Dodo waddles after your job applications — automatically detects submissions on LinkedIn, Handshake, and career sites, and logs them to Google Sheets.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

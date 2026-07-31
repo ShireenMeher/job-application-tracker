@@ -2,12 +2,12 @@
 // persistent floating counter widget. Like toast.js, this declares plain
 // top-level functions that live in the shared content-script scope.
 
-const COUNTER_ID = "job-tracker-counter";
-const COUNTER_DISMISSED_KEY = "jobTrackerCounterDismissed";
+const COUNTER_ID = "dodo-counter";
+const COUNTER_DISMISSED_KEY = "dodoCounterDismissed";
 
 function initCounter() {
-  if (window.__jobTrackerCounterInitialized) return;
-  window.__jobTrackerCounterInitialized = true;
+  if (window.__dodoCounterInitialized) return;
+  window.__dodoCounterInitialized = true;
 
   chrome.storage.local.get(COUNTER_DISMISSED_KEY, ({ [COUNTER_DISMISSED_KEY]: dismissed }) => {
     if (dismissed) return;
@@ -52,7 +52,7 @@ function renderCounter(count) {
 
   const label = document.createElement("span");
   label.id = `${COUNTER_ID}-label`;
-  label.textContent = `📋 ${count} today`;
+  label.textContent = `🦤 ${count} today`;
 
   const dismiss = document.createElement("span");
   dismiss.textContent = "✕";
@@ -83,7 +83,7 @@ function renderCounter(count) {
 function updateCounterDisplay(count) {
   const label = document.getElementById(`${COUNTER_ID}-label`);
   if (label) {
-    label.textContent = `📋 ${count} today`;
+    label.textContent = `🦤 ${count} today`;
   } else if (document.body && !document.getElementById(COUNTER_ID)) {
     renderCounter(count);
   }

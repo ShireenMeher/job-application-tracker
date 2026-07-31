@@ -6,8 +6,8 @@
 import { appendRow } from "./sheets.js";
 import { scanGmailForRejections } from "./gmail.js";
 
-const LOG_KEY = "jobTrackerLog";
-const QUEUE_KEY = "jobTrackerQueue";
+const LOG_KEY = "dodoLog";
+const QUEUE_KEY = "dodoQueue";
 const BADGE_COLOR = "#4F46E5";
 const GMAIL_ALARM = "gmailScan";
 const GMAIL_ALARM_PERIOD_MINUTES = 24 * 60;
@@ -81,7 +81,7 @@ async function logApplication(entry) {
   try {
     await appendRow(fullEntry);
   } catch (err) {
-    console.error("Job Tracker: Sheets append failed, queueing entry", err);
+    console.error("Dodo: Sheets append failed, queueing entry", err);
     const queue = await getQueue();
     queue.push(fullEntry);
     await setQueue(queue);
@@ -100,7 +100,7 @@ async function flushQueue() {
     try {
       await appendRow(entry);
     } catch (err) {
-      console.error("Job Tracker: retry failed for queued entry", err);
+      console.error("Dodo: retry failed for queued entry", err);
       remaining.push(entry);
     }
   }
