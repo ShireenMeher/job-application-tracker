@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Job Tracker",
+  "version": "1.0.0",
+  "description": "Automatically detects job application submissions on LinkedIn, Handshake, and career sites, and logs them to Google Sheets.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "identity", "tabs", "alarms"],
+  "host_permissions": [
+    "https://sheets.googleapis.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "js": ["content/toast.js", "content/counter.js", "content/linkedin.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.joinhandshake.com/*"],
+      "js": ["content/toast.js", "content/counter.js", "content/handshake.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*/*apply*",
+        "*://*/*careers*",
+        "*://*/*jobs*",
+        "*://*/*job*"
+      ],
+      "exclude_matches": [
+        "*://*.linkedin.com/*",
+        "*://*.joinhandshake.com/*"
+      ],
+      "js": ["content/toast.js", "content/counter.js", "content/generic.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

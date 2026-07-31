@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Job Tracker</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <span class="header-icon">📋</span>
+      <h1>Job Tracker</h1>
+    </header>
+
+    <section class="today-count">
+      <div class="count-number" id="todayCount">0</div>
+      <div class="count-label">applications today</div>
+    </section>
+
+    <section class="recent-list">
+      <ul id="recentList"></ul>
+      <p class="empty-state" id="emptyState" hidden>No applications logged yet.</p>
+    </section>
+
+    <button id="scanGmailBtn" class="scan-gmail-btn">Scan Gmail</button>
+    <p class="gmail-status" id="gmailStatus" hidden></p>
+
+    <hr class="divider" />
+
+    <form id="manualForm" class="manual-form">
+      <label>
+        Company
+        <input type="text" id="fieldCompany" required />
+      </label>
+      <label>
+        Role
+        <input type="text" id="fieldRole" required />
+      </label>
+      <div class="form-row">
+        <label>
+          Source
+          <select id="fieldSource">
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Handshake">Handshake</option>
+            <option value="Other" selected>Other</option>
+          </select>
+        </label>
+        <label>
+          Status
+          <select id="fieldStatus">
+            <option value="Applied" selected>Applied</option>
+            <option value="OA Received">OA Received</option>
+            <option value="Interviewing">Interviewing</option>
+            <option value="Offer">Offer</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        Notes
+        <textarea id="fieldNotes" rows="2" placeholder="Optional"></textarea>
+      </label>
+      <button type="submit" class="submit-btn">Log Application</button>
+    </form>
+
+    <footer class="footer">
+      <a id="openSheetLink" href="#" target="_blank" rel="noopener">Open Google Sheet →</a>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
