@@ -1,5 +1,5 @@
 
-# Dodo 🦤 — Setup
+# Dodo 🐶 — Setup
 
 ## 1. Load the extension (unpacked)
 

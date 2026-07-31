@@ -33,7 +33,7 @@ function showToast(company, role, todayCount) {
   `;
 
   const countLabel = typeof todayCount === "number" ? `+1 today (${todayCount})` : "+1 today";
-  let html = `<div style="font-weight:600;">🦤 ${countLabel} — logged and waddled to your sheet ✓</div>`;
+  let html = `<div style="font-weight:600;">🐶 ${countLabel} — fetched and logged ✓</div>`;
   if (company || role) {
     const sub = [company, role].filter(Boolean).join(" · ");
     html += `<div style="margin-top:4px;color:#9CA3AF;font-size:12px;">${escapeHtml(sub)}</div>`;

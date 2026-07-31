@@ -52,7 +52,7 @@ function renderCounter(count) {
 
   const label = document.createElement("span");
   label.id = `${COUNTER_ID}-label`;
-  label.textContent = `🦤 ${count} today`;
+  label.textContent = `🐶 ${count} today`;
 
   const dismiss = document.createElement("span");
   dismiss.textContent = "✕";
@@ -83,7 +83,7 @@ function renderCounter(count) {
 function updateCounterDisplay(count) {
   const label = document.getElementById(`${COUNTER_ID}-label`);
   if (label) {
-    label.textContent = `🦤 ${count} today`;
+    label.textContent = `🐶 ${count} today`;
   } else if (document.body && !document.getElementById(COUNTER_ID)) {
     renderCounter(count);
   }
