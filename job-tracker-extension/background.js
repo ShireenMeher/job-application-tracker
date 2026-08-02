@@ -18,6 +18,8 @@ const REFRESH_ALARM_PERIOD_MINUTES = 30;
 const QUEUE_ALARM = "retrySheetQueue";
 const QUEUE_ALARM_PERIOD_MINUTES = 15;
 const MAX_LOCAL_LOG_ENTRIES = 5000;
+const PENDING_CONTEXT_KEY = "dodoPendingApplicationByTab";
+const PENDING_CONTEXT_MAX_AGE_MS = 10 * 60 * 1000;
 
 function todayISO() {
   return localDateISO();
@@ -39,6 +41,51 @@ async function getQueue() {
 
 async function setQueue(queue) {
   await chrome.storage.local.set({ [QUEUE_KEY]: queue });
+}
+
+async function rememberApplicationContext(tabId, context) {
+  if (tabId === undefined) return;
+  const storage = chrome.storage.session || chrome.storage.local;
+  const { [PENDING_CONTEXT_KEY]: contexts = {} } = await storage.get(PENDING_CONTEXT_KEY);
+  const existing = contexts[tabId];
+  const incomingRoleIsUseful = !isUnhelpfulRole(context.role);
+  contexts[tabId] = {
+    ...context,
+    company: context.company || existing?.company || "",
+    role: incomingRoleIsUseful ? context.role : existing?.role || "",
+    url: incomingRoleIsUseful ? context.url : existing?.url || context.url,
+    savedAt: Date.now(),
+  };
+  await storage.set({ [PENDING_CONTEXT_KEY]: contexts });
+}
+
+async function takeApplicationContext(tabId) {
+  if (tabId === undefined) return null;
+  const storage = chrome.storage.session || chrome.storage.local;
+  const { [PENDING_CONTEXT_KEY]: contexts = {} } = await storage.get(PENDING_CONTEXT_KEY);
+  const context = contexts[tabId] || null;
+  delete contexts[tabId];
+  await storage.set({ [PENDING_CONTEXT_KEY]: contexts });
+  if (!context || Date.now() - context.savedAt > PENDING_CONTEXT_MAX_AGE_MS) return null;
+  return context;
+}
+
+function isUnhelpfulRole(role) {
+  return (
+    !role ||
+    /(?:thank you|thanks for applying|application (?:form|submitted|received|complete)|submit application|job application for)/i.test(role)
+  );
+}
+
+async function enrichDetectedApplication(message, tabId) {
+  const context = await takeApplicationContext(tabId);
+  if (!context) return message;
+  return {
+    ...message,
+    company: context.company || message.company,
+    role: !isUnhelpfulRole(context.role) ? context.role : message.role,
+    url: context.url || message.url,
+  };
 }
 
 function countToday(log) {
@@ -201,7 +248,22 @@ async function refreshCounts() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "APPLICATION_DETECTED" || message?.type === "MANUAL_LOG") {
+  if (message?.type === "REMEMBER_APPLICATION_CONTEXT") {
+    rememberApplicationContext(sender.tab?.id, message)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message?.type === "APPLICATION_DETECTED") {
+    enrichDetectedApplication(message, sender.tab?.id)
+      .then((entry) => logApplication(entry))
+      .then((result) => sendResponse({ success: true, ...result }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message?.type === "MANUAL_LOG") {
     logApplication(message)
       .then((result) => sendResponse({ success: true, ...result }))
       .catch((err) => sendResponse({ success: false, error: err.message }));

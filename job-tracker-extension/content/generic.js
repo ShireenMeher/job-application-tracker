@@ -94,19 +94,29 @@ function getPendingApplication() {
 }
 
 function rememberPendingApplication() {
+  const existing = getPendingApplication();
+  const currentRole = parseGenericRole();
+  const hasCurrentRole = isPlausibleRole(currentRole);
+  const pending = {
+    company: parseGenericCompany() || existing?.company || "",
+    role: hasCurrentRole ? currentRole : existing?.role || "",
+    // Keep the posting URL when a later application-form page no longer
+    // contains a trustworthy title.
+    url: hasCurrentRole ? location.href : existing?.url || location.href,
+    savedAt: Date.now(),
+  };
   try {
-    sessionStorage.setItem(
-      PENDING_KEY,
-      JSON.stringify({
-        company: parseGenericCompany(),
-        role: parseGenericRole(),
-        url: location.href,
-        savedAt: Date.now(),
-      })
-    );
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
   } catch {
     // Storage can be unavailable in sandboxed frames; DOM detection still works.
   }
+  // Background storage is shared across frames and survives a cross-origin
+  // confirmation redirect, unlike sessionStorage in an embedded ATS iframe.
+  chrome.runtime.sendMessage({ type: "REMEMBER_APPLICATION_CONTEXT", ...pending }, () => {
+    // Reading lastError suppresses the harmless warning if the extension is
+    // reloaded while an application page is still open.
+    void chrome.runtime.lastError;
+  });
 }
 
 function parseCompanyFromAtsPath() {
@@ -157,8 +167,36 @@ function parseGenericCompany() {
 }
 
 function parseGenericRole() {
-  const h1 = document.querySelector("h1");
-  return h1 && h1.textContent.trim() ? h1.textContent.trim() : "";
+  const selectors = [
+    '[data-automation-id="jobPostingTitle"]',
+    '[data-automation-id="jobPostingHeader"]',
+    '[data-testid*="job-title" i]',
+    '[data-qa*="job-title" i]',
+    ".job__title",
+    ".job-post__title",
+    ".posting-headline h2",
+    ".app-title",
+    "h1",
+  ];
+  for (const selector of selectors) {
+    for (const element of document.querySelectorAll(selector)) {
+      const value = element.textContent.trim();
+      if (isPlausibleRole(value)) return value;
+    }
+  }
+
+  const ogTitle = document.querySelector('meta[property="og:title"]')?.content?.trim();
+  if (isPlausibleRole(ogTitle)) return ogTitle;
+
+  const titleParts = (document.title || "").split(/[-|–—]/).map((part) => part.trim());
+  return titleParts.find(isPlausibleRole) || "";
+}
+
+function isPlausibleRole(value) {
+  if (!value || value.length < 3 || value.length > 180) return false;
+  return !/(?:thank you|thanks for applying|application (?:form|submitted|received|complete)|submit application|job application for|careers?|open positions?)/i.test(
+    value
+  );
 }
 
 function reportDetection() {
@@ -262,6 +300,15 @@ function handleFormSubmit(event) {
   scheduleBroadCheck();
 }
 
+function handleApplyClick(event) {
+  const control = event.target.closest?.("a, button, [role=button]");
+  if (!control) return;
+  const label = textOf(control).replace(/\s+/g, " ").trim();
+  if (!/^(?:easy )?apply(?: now| for this job)?$/i.test(label)) return;
+  if (!isPlausibleRole(parseGenericRole())) return;
+  rememberPendingApplication();
+}
+
 // background.js observed a known ATS's actual submit-application API call
 // succeed (currently just Ashby) — a stronger signal than DOM text, so
 // fire immediately rather than waiting for confirmation copy to render.
@@ -304,6 +351,7 @@ const observer = new MutationObserver((mutations) => {
 
 observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 document.addEventListener("submit", handleFormSubmit, true);
+document.addEventListener("click", handleApplyClick, true);
 
 // Covers the case where the confirmation content is already present by
 // the time this script runs at all — e.g. refreshing an already-confirmed
