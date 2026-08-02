@@ -77,15 +77,41 @@ function isUnhelpfulRole(role) {
   );
 }
 
+async function fetchGreenhouseJob(url) {
+  const match = (url || "").match(/job-boards\.greenhouse\.io\/([^/]+)\/jobs\/(\d+)/i);
+  if (!match) return null;
+  const [, boardToken, jobId] = match;
+  try {
+    const response = await fetch(
+      `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(boardToken)}/jobs/${jobId}`
+    );
+    if (!response.ok) return null;
+    const job = await response.json();
+    return {
+      role: typeof job.title === "string" ? job.title.trim() : "",
+      company: typeof job.company_name === "string" ? job.company_name.trim() : "",
+    };
+  } catch (err) {
+    console.warn("Dodo: could not recover Greenhouse job title", err);
+    return null;
+  }
+}
+
 async function enrichDetectedApplication(message, tabId) {
   const context = await takeApplicationContext(tabId);
-  if (!context) return message;
-  return {
+  const enriched = context ? {
     ...message,
     company: context.company || message.company,
     role: !isUnhelpfulRole(context.role) ? context.role : message.role,
     url: context.url || message.url,
-  };
+  } : { ...message };
+
+  if (isUnhelpfulRole(enriched.role)) {
+    const greenhouseJob = await fetchGreenhouseJob(enriched.url || message.url);
+    if (greenhouseJob?.role) enriched.role = greenhouseJob.role;
+    if (greenhouseJob?.company) enriched.company = greenhouseJob.company;
+  }
+  return enriched;
 }
 
 function countToday(log) {

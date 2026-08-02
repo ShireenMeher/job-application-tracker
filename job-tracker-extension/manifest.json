@@ -24,6 +24,7 @@
   "host_permissions": [
     "https://sheets.googleapis.com/*",
     "https://www.googleapis.com/*",
+    "https://boards-api.greenhouse.io/*",
     "*://*.ashbyhq.com/*"
   ],
   "oauth2": {

@@ -125,6 +125,12 @@ function parseCompanyFromAtsPath() {
 
   let slug = location.pathname.split("/").filter(Boolean)[0] || "";
 
+  if (/greenhouse\.io$/i.test(host)) {
+    // Greenhouse sometimes appends an internal numeric suffix to a board
+    // token (sourcegraph91), while the employer's display name is Sourcegraph.
+    slug = slug.replace(/\d+$/, "");
+  }
+
   // Workday, BambooHR, and many iCIMS tenants identify the employer in
   // their subdomain; their first path component is commonly a locale or
   // generic route such as /en-US/job/... or /careers/....
