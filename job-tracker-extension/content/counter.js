@@ -9,6 +9,10 @@ function initCounter() {
   if (window.__dodoCounterInitialized) return;
   window.__dodoCounterInitialized = true;
 
+  // Reloading an unpacked extension invalidates APIs in scripts already
+  // injected into open tabs. Leave the stale page alone until it reloads.
+  if (!globalThis.chrome?.storage?.local || !globalThis.chrome?.runtime?.id) return;
+
   chrome.storage.local.get(COUNTER_DISMISSED_KEY, ({ [COUNTER_DISMISSED_KEY]: dismissed }) => {
     if (dismissed) return;
 
@@ -67,14 +71,18 @@ function renderCounter(count) {
   dismiss.addEventListener("click", (e) => {
     e.stopPropagation();
     widget.remove();
-    chrome.storage.local.set({ [COUNTER_DISMISSED_KEY]: true });
+    // The widget may outlive its extension context when the user reloads
+    // Dodo from chrome://extensions. Removing it should still be harmless.
+    globalThis.chrome?.storage?.local?.set({ [COUNTER_DISMISSED_KEY]: true });
   });
 
   widget.appendChild(label);
   widget.appendChild(dismiss);
 
   widget.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "OPEN_POPUP" });
+    if (globalThis.chrome?.runtime?.id) {
+      chrome.runtime.sendMessage({ type: "OPEN_POPUP" });
+    }
   });
 
   document.body.appendChild(widget);
