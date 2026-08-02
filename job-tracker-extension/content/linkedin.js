@@ -24,8 +24,18 @@ function looksLikeSuccessNode(node) {
 }
 
 function pageHasSuccess() {
-  const text = textOf(document.body);
-  return SUCCESS_PHRASES.some((phrase) => text.includes(phrase));
+  return Boolean(findSuccessText());
+}
+
+function findSuccessText() {
+  const containers = document.querySelectorAll('[role="dialog"], [aria-modal="true"], .artdeco-modal');
+  for (const container of containers) {
+    const text = textOf(container);
+    if (SUCCESS_PHRASES.some((phrase) => text.includes(phrase))) {
+      return container.innerText || container.textContent || "";
+    }
+  }
+  return "";
 }
 
 function querySelectorText(selectors) {
@@ -38,8 +48,10 @@ function querySelectorText(selectors) {
 
 function parseLinkedInJobInfo() {
   const role = querySelectorText([
+    ".job-details-jobs-unified-top-card__job-title h1",
     ".job-details-jobs-unified-top-card__job-title",
     ".jobs-unified-top-card__job-title",
+    ".jobs-details__main-content h1",
     "h1.t-24",
     "h1",
   ]);
@@ -51,11 +63,40 @@ function parseLinkedInJobInfo() {
   return { company, role };
 }
 
+function rememberLinkedInContext() {
+  const { company, role } = parseLinkedInJobInfo();
+  if (!company && !role) return;
+  chrome.runtime.sendMessage(
+    {
+      type: "REMEMBER_APPLICATION_CONTEXT",
+      company,
+      role,
+      url: location.href,
+      savedAt: Date.now(),
+    },
+    () => void chrome.runtime.lastError
+  );
+}
+
+document.addEventListener(
+  "click",
+  (event) => {
+    const control = event.target.closest?.("button, [role=button]");
+    if (!control) return;
+    const label = textOf(control).replace(/\s+/g, " ").trim();
+    if (/^(?:easy apply|submit application)$/i.test(label)) rememberLinkedInContext();
+  },
+  true
+);
+
 function handleApplySuccess() {
   if (hasFiredForCurrentUrl) return;
   hasFiredForCurrentUrl = true;
 
-  const { company, role } = parseLinkedInJobInfo();
+  let { company, role } = parseLinkedInJobInfo();
+  const successText = findSuccessText();
+  const companyMatch = successText.match(/application was sent to\s+([^!\n.]+)/i);
+  if (companyMatch?.[1]) company = companyMatch[1].trim();
 
   chrome.runtime.sendMessage(
     {
@@ -98,12 +139,13 @@ observer.observe(document.body, { childList: true, subtree: true, characterData:
 // Covers confirmations already rendered before the observer starts.
 if (pageHasSuccess()) handleApplySuccess();
 
-// LinkedIn is a single-page app; reset the "already fired" guard whenever
-// the URL changes so a new job's application can be detected too.
+// LinkedIn sometimes reuses an already-mounted modal and changes its state
+// without mutations our observer can reliably associate with the success
+// message. Poll the small modal subtree as a final safety net.
 setInterval(() => {
   if (location.href !== lastHref) {
     lastHref = location.href;
     hasFiredForCurrentUrl = false;
-    scheduleBroadSuccessCheck();
   }
-}, 1000);
+  if (!hasFiredForCurrentUrl && pageHasSuccess()) handleApplySuccess();
+}, 500);
