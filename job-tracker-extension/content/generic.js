@@ -112,11 +112,7 @@ function rememberPendingApplication() {
   }
   // Background storage is shared across frames and survives a cross-origin
   // confirmation redirect, unlike sessionStorage in an embedded ATS iframe.
-  chrome.runtime.sendMessage({ type: "REMEMBER_APPLICATION_CONTEXT", ...pending }, () => {
-    // Reading lastError suppresses the harmless warning if the extension is
-    // reloaded while an application page is still open.
-    void chrome.runtime.lastError;
-  });
+  sendDodoMessage({ type: "REMEMBER_APPLICATION_CONTEXT", ...pending });
 }
 
 function parseCompanyFromAtsPath() {
@@ -214,7 +210,7 @@ function reportDetection() {
   const role = pending?.role || parseGenericRole();
   const applicationUrl = pending?.url || location.href;
 
-  chrome.runtime.sendMessage(
+  sendDodoMessage(
     {
       type: "APPLICATION_DETECTED",
       company,
@@ -223,7 +219,7 @@ function reportDetection() {
       url: applicationUrl,
     },
     (response) => {
-      if (chrome.runtime.lastError || !response?.success || response?.duplicate) return;
+      if (!response?.success || response?.duplicate) return;
       try { sessionStorage.removeItem(PENDING_KEY); } catch {}
       showToast(company, role, response?.todayCount);
     }

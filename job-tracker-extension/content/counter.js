@@ -16,8 +16,7 @@ function initCounter() {
   chrome.storage.local.get(COUNTER_DISMISSED_KEY, ({ [COUNTER_DISMISSED_KEY]: dismissed }) => {
     if (dismissed) return;
 
-    chrome.runtime.sendMessage({ type: "GET_TODAY_COUNT" }, (response) => {
-      if (chrome.runtime.lastError) return;
+    sendDodoMessage({ type: "GET_TODAY_COUNT" }, (response) => {
       renderCounter(response?.todayCount || 0);
     });
   });
@@ -73,16 +72,18 @@ function renderCounter(count) {
     widget.remove();
     // The widget may outlive its extension context when the user reloads
     // Dodo from chrome://extensions. Removing it should still be harmless.
-    globalThis.chrome?.storage?.local?.set({ [COUNTER_DISMISSED_KEY]: true });
+    try {
+      globalThis.chrome?.storage?.local?.set({ [COUNTER_DISMISSED_KEY]: true });
+    } catch {
+      // Stale widget from before an extension reload.
+    }
   });
 
   widget.appendChild(label);
   widget.appendChild(dismiss);
 
   widget.addEventListener("click", () => {
-    if (globalThis.chrome?.runtime?.id) {
-      chrome.runtime.sendMessage({ type: "OPEN_POPUP" });
-    }
+    sendDodoMessage({ type: "OPEN_POPUP" });
   });
 
   document.body.appendChild(widget);

@@ -66,31 +66,29 @@ function parseLinkedInJobInfo() {
 function rememberLinkedInContext() {
   const { company, role } = parseLinkedInJobInfo();
   if (!company && !role) return;
-  chrome.runtime.sendMessage(
+  sendDodoMessage(
     {
       type: "REMEMBER_APPLICATION_CONTEXT",
       company,
       role,
       url: location.href,
       savedAt: Date.now(),
-    },
-    () => void chrome.runtime.lastError
+    }
   );
 }
 
-document.addEventListener(
-  "click",
-  (event) => {
-    const control = event.target.closest?.("button, [role=button]");
-    if (!control) return;
-    const label = textOf(control).replace(/\s+/g, " ").trim();
-    if (/^(?:easy apply|submit application)$/i.test(label)) rememberLinkedInContext();
-  },
-  true
-);
+function handleLinkedInClick(event) {
+  if (!isDodoContextValid()) return;
+  const control = event.target.closest?.("button, [role=button]");
+  if (!control) return;
+  const label = textOf(control).replace(/\s+/g, " ").trim();
+  if (/^(?:easy apply|submit application)$/i.test(label)) rememberLinkedInContext();
+}
+
+document.addEventListener("click", handleLinkedInClick, true);
 
 function handleApplySuccess() {
-  if (hasFiredForCurrentUrl) return;
+  if (hasFiredForCurrentUrl || !isDodoContextValid()) return;
   hasFiredForCurrentUrl = true;
 
   let { company, role } = parseLinkedInJobInfo();
@@ -98,7 +96,7 @@ function handleApplySuccess() {
   const companyMatch = successText.match(/application was sent to\s+([^!\n.]+)/i);
   if (companyMatch?.[1]) company = companyMatch[1].trim();
 
-  chrome.runtime.sendMessage(
+  const sent = sendDodoMessage(
     {
       type: "APPLICATION_DETECTED",
       company,
@@ -107,13 +105,18 @@ function handleApplySuccess() {
       url: location.href,
     },
     (response) => {
-      if (chrome.runtime.lastError || response?.duplicate) return;
+      if (!response?.success || response?.duplicate) return;
       showToast(company, role, response?.todayCount);
     }
   );
+  if (!sent) hasFiredForCurrentUrl = false;
 }
 
 const observer = new MutationObserver((mutations) => {
+  if (!isDodoContextValid()) {
+    observer.disconnect();
+    return;
+  }
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
       if (looksLikeSuccessNode(node)) {
@@ -130,6 +133,10 @@ function scheduleBroadSuccessCheck() {
   if (broadCheckTimer || hasFiredForCurrentUrl) return;
   broadCheckTimer = setTimeout(() => {
     broadCheckTimer = null;
+    if (!isDodoContextValid()) {
+      observer.disconnect();
+      return;
+    }
     if (!hasFiredForCurrentUrl && pageHasSuccess()) handleApplySuccess();
   }, 300);
 }
@@ -142,7 +149,13 @@ if (pageHasSuccess()) handleApplySuccess();
 // LinkedIn sometimes reuses an already-mounted modal and changes its state
 // without mutations our observer can reliably associate with the success
 // message. Poll the small modal subtree as a final safety net.
-setInterval(() => {
+const successPoll = setInterval(() => {
+  if (!isDodoContextValid()) {
+    clearInterval(successPoll);
+    observer.disconnect();
+    document.removeEventListener("click", handleLinkedInClick, true);
+    return;
+  }
   if (location.href !== lastHref) {
     lastHref = location.href;
     hasFiredForCurrentUrl = false;

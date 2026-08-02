@@ -55,7 +55,7 @@ function handleApplySuccess() {
 
   const { company, role } = parseHandshakeJobInfo();
 
-  chrome.runtime.sendMessage(
+  sendDodoMessage(
     {
       type: "APPLICATION_DETECTED",
       company,
@@ -64,7 +64,7 @@ function handleApplySuccess() {
       url: location.href,
     },
     (response) => {
-      if (chrome.runtime.lastError || response?.duplicate) return;
+      if (!response?.success || response?.duplicate) return;
       showToast(company, role, response?.todayCount);
     }
   );

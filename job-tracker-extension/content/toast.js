@@ -6,6 +6,34 @@
 
 const TOAST_ID = "dodo-toast";
 
+function isDodoContextValid() {
+  try {
+    return Boolean(globalThis.chrome?.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+// Content scripts already present in a tab are invalidated whenever an
+// unpacked extension is reloaded. Chrome throws synchronously in that case,
+// so every site detector sends through this guard.
+function sendDodoMessage(message, callback) {
+  if (!isDodoContextValid()) return false;
+  try {
+    chrome.runtime.sendMessage(message, (response) => {
+      try {
+        if (!isDodoContextValid() || chrome.runtime.lastError) return;
+        callback?.(response);
+      } catch {
+        // The extension was reloaded while the response was in flight.
+      }
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function showToast(company, role, todayCount) {
   const existing = document.getElementById(TOAST_ID);
   if (existing) existing.remove();
