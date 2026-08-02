@@ -20,13 +20,14 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "identity", "tabs", "alarms"],
+  "permissions": ["storage", "identity", "tabs", "alarms", "webRequest"],
   "host_permissions": [
     "https://sheets.googleapis.com/*",
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "*://*.ashbyhq.com/*"
   ],
   "oauth2": {
-    "client_id": "YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "client_id": "988052177797-beqj0om0507ppeo1bj89edm691vm4jog.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/gmail.readonly"
@@ -48,14 +49,24 @@
         "*://*/*apply*",
         "*://*/*careers*",
         "*://*/*jobs*",
-        "*://*/*job*"
+        "*://*/*job*",
+        "*://*.greenhouse.io/*",
+        "*://*.lever.co/*",
+        "*://*.ashbyhq.com/*",
+        "*://*.myworkdayjobs.com/*",
+        "*://*.icims.com/*",
+        "*://*.smartrecruiters.com/*",
+        "*://*.bamboohr.com/*",
+        "*://*.jobvite.com/*",
+        "*://*.workable.com/*"
       ],
       "exclude_matches": [
         "*://*.linkedin.com/*",
         "*://*.joinhandshake.com/*"
       ],
       "js": ["content/toast.js", "content/counter.js", "content/generic.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ]
 }

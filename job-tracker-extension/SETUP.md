@@ -46,13 +46,15 @@
    ```
 5. Reload the extension again.
 
-The extension will automatically create the header row (`Date | Company | Role | Source | URL | Status | Notes`) the first time it logs an entry.
+The extension will automatically create the header row (`Date | Company | Role | Source | URL | Status | Notes | Job ID`) the first time it logs an entry.
 
-## 5. Gmail rejection scanning
+## 5. Gmail status scanning
 
-The Gmail API must be enabled in the same Cloud project (step 2 above) for this feature to work. The extension requests read-only Gmail access (`gmail.readonly`) — it only searches subjects/snippets for likely rejection emails and never sends or modifies mail.
+The Gmail API must be enabled in the same Cloud project (step 2 above) for this feature to work. The extension requests read-only Gmail access (`gmail.readonly`) — it searches subjects/snippets from the last 60 days for likely status-update emails (rejected, interview, assessment, offer) and never sends or modifies mail.
 
-The first time you click **Scan Gmail** in the popup (or the first time the daily background scan runs), Chrome will show a permission prompt asking you to sign in and approve Gmail access. Approve it to enable scanning. After that, scans run silently:
+A scan only ever updates the Status column on rows that already exist in your sheet — it matches by company name against your most recently applied, not-yet-rejected row for that company, and never creates new rows. Emails that don't match a logged application are skipped.
+
+The first time you click **Scan Gmail** in the popup, Chrome will show a permission prompt asking you to sign in and approve Gmail access. Background scans never open a sign-in prompt; after you approve access once, they run silently:
 - On demand, via the **Scan Gmail** button in the popup.
 - Automatically once every 24 hours in the background (`chrome.alarms`).
 
@@ -67,5 +69,5 @@ The first time you click **Scan Gmail** in the popup (or the first time the dail
 ## Notes / limitations
 
 - The generic detector is heuristic (form-submit + URL pattern based) since career sites vary widely; company/role parsing from `<title>`/`<h1>` won't always be perfect.
-- If a Sheets API call fails (e.g. offline), the entry is queued in `chrome.storage.local` and retried automatically the next time the extension's service worker wakes up.
+- If a Sheets API call fails (e.g. offline), the entry is queued in `chrome.storage.local` and retried every 15 minutes and when Chrome starts.
 - The extension requests broad host permissions (`https://sheets.googleapis.com/*`, `https://www.googleapis.com/*`) for API calls, and content-script access to pages matching `/apply`, `/careers`, `/jobs`, `/job` on any site, in order to support arbitrary company career pages.

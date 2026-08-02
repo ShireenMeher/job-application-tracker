@@ -1,4 +1,5 @@
 import { SPREADSHEET_ID } from "../config.js";
+import { localDateISO } from "../date.js";
 
 const LOG_KEY = "dodoLog";
 
@@ -11,7 +12,7 @@ const manualForm = document.getElementById("manualForm");
 const openSheetLink = document.getElementById("openSheetLink");
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateISO();
 }
 
 function escapeHtml(str) {
@@ -75,6 +76,9 @@ manualForm.addEventListener("submit", async (e) => {
   if (!company || !role) return;
 
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // Only capture real http(s) job pages — chrome://, chrome-extension://,
+  // etc. aren't a useful "URL" for a manually logged application.
+  const activeUrl = /^https?:\/\//i.test(activeTab?.url || "") ? activeTab.url : "";
 
   chrome.runtime.sendMessage(
     {
@@ -84,9 +88,13 @@ manualForm.addEventListener("submit", async (e) => {
       source,
       status,
       notes,
-      url: activeTab?.url || "",
+      url: activeUrl,
     },
-    async () => {
+    async (response) => {
+      if (chrome.runtime.lastError || !response?.success) {
+        showGmailStatus(response?.error || "Could not log the application. Try again.");
+        return;
+      }
       manualForm.reset();
       document.getElementById("fieldSource").value = "Other";
       document.getElementById("fieldStatus").value = "Applied";
@@ -115,7 +123,7 @@ scanGmailBtn.addEventListener("click", () => {
 
     const count = response?.count || 0;
     showGmailStatus(
-      count > 0 ? `Found ${count} rejection${count === 1 ? "" : "s"} — Sheet updated` : "No new rejections found"
+      count > 0 ? `Updated ${count} application${count === 1 ? "" : "s"} — Sheet updated` : "No new updates found"
     );
     await refreshUI();
   });

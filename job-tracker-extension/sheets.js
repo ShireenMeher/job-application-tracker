@@ -5,7 +5,7 @@
 import { SPREADSHEET_ID, SHEET_NAME } from "./config.js";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
-const HEADER_ROW = ["Date", "Company", "Role", "Source", "URL", "Status", "Notes"];
+const HEADER_ROW = ["Date", "Company", "Role", "Source", "URL", "Status", "Notes", "Job ID"];
 
 export function getAuthToken(interactive) {
   return new Promise((resolve, reject) => {
@@ -58,26 +58,139 @@ function rowRange(a1) {
   return encodeURIComponent(`${SHEET_NAME}!${a1}`);
 }
 
-let headerEnsured = false;
+let cachedSheetId = null;
 
-async function ensureHeaderRow() {
-  if (headerEnsured) return;
-  const data = await sheetsRequest(`/values/${rowRange("A1:G1")}`, { method: "GET" });
-  const hasHeader = data?.values?.[0]?.[0] === "Date";
-  if (!hasHeader) {
+async function getSheetId(interactive = true) {
+  if (cachedSheetId !== null) return cachedSheetId;
+  const data = await sheetsRequest("?fields=sheets.properties", { method: "GET" }, interactive);
+  const sheet = data?.sheets?.find((s) => s.properties.title === SHEET_NAME);
+  if (!sheet) throw new Error(`Sheet tab "${SHEET_NAME}" not found`);
+  cachedSheetId = sheet.properties.sheetId;
+  return cachedSheetId;
+}
+
+// Bold, colored, frozen header row plus sane column widths — applied once
+// ever (tracked in storage, independent of whether the header text itself
+// needed rewriting) so an existing plain-looking sheet gets styled too.
+async function applyHeaderFormatting(interactive = true) {
+  const sheetId = await getSheetId(interactive);
+  await sheetsRequest(":batchUpdate", {
+    method: "POST",
+    body: JSON.stringify({
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+            fields: "gridProperties.frozenRowCount",
+          },
+        },
+        {
+          repeatCell: {
+            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+            cell: {
+              userEnteredFormat: {
+                textFormat: { bold: true, foregroundColor: { red: 0.31, green: 0.27, blue: 0.9 } },
+                backgroundColor: { red: 0.93, green: 0.94, blue: 1 },
+              },
+            },
+            fields: "userEnteredFormat(textFormat,backgroundColor)",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
+            properties: { pixelSize: 100 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: 2 },
+            properties: { pixelSize: 140 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 3 },
+            properties: { pixelSize: 220 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 3, endIndex: 4 },
+            properties: { pixelSize: 100 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 4, endIndex: 5 },
+            properties: { pixelSize: 260 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 5, endIndex: 6 },
+            properties: { pixelSize: 110 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 6, endIndex: 7 },
+            properties: { pixelSize: 240 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 7, endIndex: 8 },
+            properties: { pixelSize: 150 },
+            fields: "pixelSize",
+          },
+        },
+      ],
+    }),
+  }, interactive);
+}
+
+let setupEnsured = false;
+const FORMAT_APPLIED_KEY = "dodoSheetFormatted";
+
+async function ensureSheetSetup(interactive = true) {
+  if (setupEnsured) return;
+
+  const data = await sheetsRequest(`/values/${rowRange("A1:H1")}`, { method: "GET" }, interactive);
+  const existing = data?.values?.[0] || [];
+  const needsWrite = HEADER_ROW.some((label, i) => existing[i] !== label);
+  if (needsWrite) {
     await sheetsRequest(
-      `/values/${rowRange("A1:G1")}?valueInputOption=USER_ENTERED`,
+      `/values/${rowRange("A1:H1")}?valueInputOption=USER_ENTERED`,
       {
         method: "PUT",
         body: JSON.stringify({ values: [HEADER_ROW] }),
-      }
+      },
+      interactive
     );
   }
-  headerEnsured = true;
+
+  const { [FORMAT_APPLIED_KEY]: alreadyFormatted } = await chrome.storage.local.get(FORMAT_APPLIED_KEY);
+  if (!alreadyFormatted) {
+    try {
+      await applyHeaderFormatting(interactive);
+      await chrome.storage.local.set({ [FORMAT_APPLIED_KEY]: true });
+    } catch (err) {
+      console.error("Dodo: sheet formatting failed (non-fatal)", err);
+    }
+  }
+  setupEnsured = true;
 }
 
-export async function appendRow(entry) {
-  await ensureHeaderRow();
+export async function appendRow(entry, interactive = true) {
+  await ensureSheetSetup(interactive);
   const values = [
     [
       entry.date,
@@ -87,21 +200,23 @@ export async function appendRow(entry) {
       entry.url || "",
       entry.status || "Applied",
       entry.notes || "",
+      entry.jobId || "",
     ],
   ];
   await sheetsRequest(
-    `/values/${rowRange("A:G")}:append?valueInputOption=USER_ENTERED`,
+    `/values/${rowRange("A:H")}:append?valueInputOption=USER_ENTERED`,
     {
       method: "POST",
       body: JSON.stringify({ values }),
-    }
+    },
+    interactive
   );
 }
 
 // Returns existing rows (skipping the header) as
-// { rowNumber, date, company, role, source, url, status, notes }.
-export async function getAllRows() {
-  const data = await sheetsRequest(`/values/${rowRange("A2:G")}`, { method: "GET" });
+// { rowNumber, date, company, role, source, url, status, notes, jobId }.
+export async function getAllRows(interactive = true) {
+  const data = await sheetsRequest(`/values/${rowRange("A2:H")}`, { method: "GET" }, interactive);
   const rows = data?.values || [];
   return rows.map((row, i) => ({
     rowNumber: i + 2,
@@ -112,15 +227,17 @@ export async function getAllRows() {
     url: row[4] || "",
     status: row[5] || "",
     notes: row[6] || "",
+    jobId: row[7] || "",
   }));
 }
 
-export async function updateRowStatus(rowNumber, status) {
+export async function updateRowStatus(rowNumber, status, interactive = true) {
   await sheetsRequest(
     `/values/${rowRange(`F${rowNumber}`)}?valueInputOption=USER_ENTERED`,
     {
       method: "PUT",
       body: JSON.stringify({ values: [[status]] }),
-    }
+    },
+    interactive
   );
 }

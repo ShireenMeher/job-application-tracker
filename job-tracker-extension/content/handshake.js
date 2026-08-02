@@ -26,6 +26,11 @@ function looksLikeSuccessNode(node) {
   return SUCCESS_PHRASES.some((phrase) => text.includes(phrase));
 }
 
+function pageHasSuccess() {
+  const text = textOf(document.body);
+  return SUCCESS_PHRASES.some((phrase) => text.includes(phrase));
+}
+
 function querySelectorText(selectors) {
   for (const sel of selectors) {
     const el = document.querySelector(sel);
@@ -59,7 +64,7 @@ function handleApplySuccess() {
       url: location.href,
     },
     (response) => {
-      if (chrome.runtime.lastError) return;
+      if (chrome.runtime.lastError || response?.duplicate) return;
       showToast(company, role, response?.todayCount);
     }
   );
@@ -74,9 +79,21 @@ const observer = new MutationObserver((mutations) => {
       }
     }
   }
+  scheduleBroadSuccessCheck();
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+let broadCheckTimer = null;
+function scheduleBroadSuccessCheck() {
+  if (broadCheckTimer || hasFiredForCurrentUrl) return;
+  broadCheckTimer = setTimeout(() => {
+    broadCheckTimer = null;
+    if (!hasFiredForCurrentUrl && pageHasSuccess()) handleApplySuccess();
+  }, 300);
+}
+
+observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+if (pageHasSuccess()) handleApplySuccess();
 
 setInterval(() => {
   if (location.href !== lastHref) {
@@ -85,6 +102,8 @@ setInterval(() => {
     hasFiredForCurrentUrl = false;
     if (CONFIRMATION_URL_PATTERN.test(changedTo)) {
       handleApplySuccess();
+    } else {
+      scheduleBroadSuccessCheck();
     }
   }
 }, 1000);

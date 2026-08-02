@@ -5,6 +5,8 @@ const SUCCESS_PHRASES = [
   "your application was sent",
   "application sent",
   "your application has been sent",
+  "application submitted",
+  "you successfully applied",
 ];
 
 let hasFiredForCurrentUrl = false;
@@ -18,6 +20,11 @@ function looksLikeSuccessNode(node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return false;
   const text = textOf(node);
   if (!text || text.length > 4000) return false;
+  return SUCCESS_PHRASES.some((phrase) => text.includes(phrase));
+}
+
+function pageHasSuccess() {
+  const text = textOf(document.body);
   return SUCCESS_PHRASES.some((phrase) => text.includes(phrase));
 }
 
@@ -59,7 +66,7 @@ function handleApplySuccess() {
       url: location.href,
     },
     (response) => {
-      if (chrome.runtime.lastError) return;
+      if (chrome.runtime.lastError || response?.duplicate) return;
       showToast(company, role, response?.todayCount);
     }
   );
@@ -74,9 +81,22 @@ const observer = new MutationObserver((mutations) => {
       }
     }
   }
+  scheduleBroadSuccessCheck();
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+let broadCheckTimer = null;
+function scheduleBroadSuccessCheck() {
+  if (broadCheckTimer || hasFiredForCurrentUrl) return;
+  broadCheckTimer = setTimeout(() => {
+    broadCheckTimer = null;
+    if (!hasFiredForCurrentUrl && pageHasSuccess()) handleApplySuccess();
+  }, 300);
+}
+
+observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+// Covers confirmations already rendered before the observer starts.
+if (pageHasSuccess()) handleApplySuccess();
 
 // LinkedIn is a single-page app; reset the "already fired" guard whenever
 // the URL changes so a new job's application can be detected too.
@@ -84,5 +104,6 @@ setInterval(() => {
   if (location.href !== lastHref) {
     lastHref = location.href;
     hasFiredForCurrentUrl = false;
+    scheduleBroadSuccessCheck();
   }
 }, 1000);
